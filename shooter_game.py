@@ -4,12 +4,14 @@ from pygame import *
 init()
 font.init()
 font1 = font.SysFont("Impact", 100)
+font2 = font.SysFont("Impact", 50)
 game_over_text = font1.render("GAME OVER", True, (150, 0, 0))
 mixer.init()
 mixer.music.load('space.ogg')
 # mixer.music.play()
 mixer.music.set_volume(0.2)
-
+lazer_sound = mixer.Sound("laser1.wav")
+lazer_sound.set_volume(0.6)
 
 screen_info = display.Info()
 WIDTH, HEIGHT = screen_info.current_w, screen_info.current_h
@@ -18,13 +20,13 @@ window = display.set_mode((WIDTH,HEIGHT), flags=FULLSCREEN)
 FPS = 90
 clock = time.Clock()
 
-bg = image.load('infinite_starts.jpg')
+bg = image.load('background.jpg')
 bg = transform.scale(bg,(WIDTH,HEIGHT))
 bg_y1 = 0
 bg_y2 = -HEIGHT
-
-player_img = image.load("spaceship.png")
-enemy_img = image.load("alien.png")
+lazer_img = image.load("lazer.png")
+player_img = image.load("onlyrocket.svg")
+enemy_img = image.load("alien-removebg-preview.png")
 all_sprites = sprite.Group()
 
 class Sprite(sprite.Sprite):
@@ -41,14 +43,19 @@ class Player(Sprite):
     def __init__(self, sprite_img, width, height, x, y):
         super().__init__(sprite_img, width, height, x, y)
         self.hp = 100
+        self.point = 0  
         self.speed = 4
         self.bg_speed = 4
         self.max_speed = 30
 
+
+    def shoot(self):
+        new_lazer = Lazer(lazer_img, 15, 20, self.rect.centerx,self.rect.top)
+        lazer_sound.play()
     def update(self):
         key_pressed = key.get_pressed()
         old_pos = self.rect.x, self.rect.y
-        if key_pressed[K_w] and self.rect.y > 200:
+        if key_pressed[K_w] and self.rect.y > 20:
             self.rect.y -= self.speed
             if self.bg_speed < self.max_speed:
                 self.bg_speed += 0.1
@@ -62,7 +69,6 @@ class Player(Sprite):
         enemy_collide = sprite.spritecollide(self, enemys, False, sprite.collide_mask)
         if len(enemy_collide) > 0:
             self.hp -= 100
-
 
 class Enemy(Sprite):
     def __init__(self, sprite_img, width, height):
@@ -78,10 +84,28 @@ class Enemy(Sprite):
             self.kill()
 
 
+lazer = sprite.Group()
+class Lazer(Sprite):
+    def __init__(self, sprite_img, width, height, x,y):
+        super().__init__(sprite_img, width, height, x,y)
+        self.rect.centerx = x
+        self.damage = 100
+        self.speed = 7
+        lazer.add(self)
+
+    def update(self):
+        self.rect.y -= self.speed
+        if self.rect.bottom < 0:
+            self.kill()            
+
 
 player = Player(player_img, 100, 70, 300, 300)
 enemys = sprite.Group()
 enemy1 = Enemy(enemy_img, 80, 60)
+
+point_text = font2.render(f"Point:{player.point}", True, (255,255,255))
+
+
 
 start_time = time.get_ticks()
 enemy_spawn_time = time.get_ticks()
@@ -96,6 +120,11 @@ while run:
         if e.type == KEYDOWN:
             if e.key == K_ESCAPE:
                 run = False
+            if e.key == K_SPACE:
+                 player.shoot()
+
+
+
     window.blit(bg,(0,bg_y1))
     window.blit(bg,(0,bg_y2))
     bg_y1 +=player.bg_speed
@@ -114,11 +143,20 @@ while run:
         enemy_spawn_time = time.get_ticks()
         spawn_interval = randint(500, 1500)
 
+    lazer_collide = sprite.groupcollide(lazer, enemys, True, True, sprite.collide_mask)
+    for l in lazer_collide:
+        player.point += 10
+        point_text = font2.render(f"Point:{player.point}", True, (255,255,255))
+
+        
+
     collide_list = sprite.spritecollide(player, enemys, False, sprite.collide_mask)
     if len(collide_list) > 0:
         finish = True
 
     all_sprites.draw(window)
+    window.blit(point_text, (15,15))
+
     if not finish:
         all_sprites.update()
     if finish:
